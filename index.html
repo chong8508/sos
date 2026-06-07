@@ -6,15 +6,22 @@
     <title>智慧報案系統</title>
     <style>
         body { font-family: sans-serif; padding: 20px; background-color: #121212; color: white; text-align: center; }
-        input, select, textarea { width: 90%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #444; background: #222; color: white; }
+        input, select, textarea { width: 90%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #444; background: #222; color: white; box-sizing: border-box; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
-        button { padding: 15px; font-size: 16px; border: none; border-radius: 8px; color: white; cursor: pointer; font-weight: bold; }
+        button { padding: 15px; font-size: 16px; border: none; border-radius: 8px; color: white; cursor: pointer; font-weight: bold; width: 100%; }
         
         /* 區塊樣式 */
         .section-title { margin-top: 30px; font-size: 1.2em; border-bottom: 1px solid #444; padding-bottom: 5px; }
         .sms-btn { background-color: #27ae60; }
         .call-btn { background-color: #c0392b; height: 60px; font-size: 18px; }
         .info-box { background: #333; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #555; }
+
+        /* 彈出視窗 (Modal) 樣式 */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); }
+        .modal-content { background-color: #222; margin: 30% auto; padding: 20px; border: 1px solid #444; width: 85%; border-radius: 10px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
+        .modal-title { margin-top: 0; font-size: 1.2em; color: #fff; margin-bottom: 15px; }
+        .cancel-btn { background-color: #7f8c8d; }
+        .confirm-btn { background-color: #2980b9; }
     </style>
 </head>
 <body>
@@ -26,25 +33,37 @@
         <input type="text" id="coordInput" readonly placeholder="座標...">
     </div>
 
-    <select id="accidentType">
-        <option value="A1">車禍：A1類 (死亡)</option>
-        <option value="A2">車禍：A2類 (受傷)</option>
-        <option value="A3">車禍：A3類 (僅財損)</option>
-    </select>
-    <textarea id="note" rows="2" placeholder="現場說明..."></textarea>
-
     <div class="section-title">簡訊文字報案</div>
     <div class="grid">
-        <button class="sms-btn" onclick="sendReport('accident')">【車禍】簡訊</button>
-        <button class="sms-btn" onclick="sendReport('parking')">【違停】簡訊</button>
-        <button class="sms-btn" onclick="sendReport('general')">【協助】簡訊</button>
-        <button class="sms-btn" onclick="sendReport('criminal')">【刑事】簡訊</button>
+        <button class="sms-btn" onclick="openModal('accident')">【車禍】簡訊</button>
+        <button class="sms-btn" onclick="openModal('parking')">【違停】簡訊</button>
+        <button class="sms-btn" onclick="openModal('general')">【協助】簡訊</button>
+        <button class="sms-btn" onclick="openModal('criminal')">【刑事】簡訊</button>
     </div>
 
     <div class="section-title">緊急語音通話</div>
     <div class="grid">
         <button class="call-btn" onclick="window.location.href='tel:110'">撥打 110</button>
         <button class="call-btn" style="background-color: #d35400;" onclick="window.location.href='tel:119'">撥打 119</button>
+    </div>
+
+    <div id="reportModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle" class="modal-title">填寫報案資訊</h3>
+            
+            <select id="accidentType" style="display:none;">
+                <option value="A1">車禍：A1類 (死亡)</option>
+                <option value="A2">車禍：A2類 (受傷)</option>
+                <option value="A3">車禍：A3類 (僅財損)</option>
+            </select>
+            
+            <textarea id="note" rows="3" placeholder="請輸入現場說明..."></textarea>
+            
+            <div class="grid">
+                <button class="cancel-btn" onclick="closeModal()">取消</button>
+                <button class="confirm-btn" onclick="confirmSend()">確認並發送</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -54,6 +73,9 @@
             "台中市": "0911510110", "台南市": "0911510110", "高雄市": "0911510110",
             "基隆市": "0911510110", "新竹市": "0911510110", "嘉義市": "0911510110"
         };
+
+        // 記錄目前準備發送的報案類型
+        let currentReportType = '';
 
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition((pos) => {
@@ -68,9 +90,37 @@
             });
         }
 
-        function sendReport(type) {
-            const loc = document.getElementById('locationInput').value;
-            const note = document.getElementById('note').value;
+        // 開啟彈出視窗並根據按鈕調整內容
+        function openModal(type) {
+            currentReportType = type;
+            document.getElementById('reportModal').style.display = 'block';
+            document.getElementById('note').value = ''; // 清空先前的說明
+            
+            const accSelect = document.getElementById('accidentType');
+            const modalTitle = document.getElementById('modalTitle');
+            
+            if (type === 'accident') {
+                accSelect.style.display = 'block';
+                modalTitle.innerText = '車禍報案資訊';
+            } else {
+                accSelect.style.display = 'none';
+                switch(type) {
+                    case 'parking': modalTitle.innerText = '違停報案資訊'; break;
+                    case 'general': modalTitle.innerText = '一般協助資訊'; break;
+                    case 'criminal': modalTitle.innerText = '刑事報案資訊'; break;
+                }
+            }
+        }
+
+        // 關閉彈出視窗
+        function closeModal() {
+            document.getElementById('reportModal').style.display = 'none';
+        }
+
+        // 確認發送簡訊
+        function confirmSend() {
+            const loc = document.getElementById('locationInput').value || '未取得定位';
+            const note = document.getElementById('note').value || '無';
             let targetPhone = "110"; 
 
             for (let city in smsNumbers) {
@@ -81,12 +131,17 @@
             }
 
             let msg = "";
-            switch(type) {
-                case 'accident': msg = `【車禍報案】類別：${document.getElementById('accidentType').value}。地點：${loc}。說明：${note}。`; break;
+            switch(currentReportType) {
+                case 'accident': 
+                    const accType = document.getElementById('accidentType').value;
+                    msg = `【車禍報案】類別：${accType}。地點：${loc}。說明：${note}。`; 
+                    break;
                 case 'parking':  msg = `【違規停車】地點：${loc}。說明：${note}。請派員查處。`; break;
                 case 'general':  msg = `【一般協助】地點：${loc}。說明：${note}。請協助。`; break;
                 case 'criminal': msg = `【刑事報案】地點：${loc}。說明：${note}。請警方介入。`; break;
             }
+            
+            closeModal(); // 發送前關閉視窗
             window.location.href = `sms:${targetPhone}?body=${encodeURIComponent(msg)}`;
         }
     </script>
