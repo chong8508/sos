@@ -8,10 +8,12 @@
         body { font-family: sans-serif; padding: 20px; background-color: #121212; color: white; text-align: center; }
         input, select, textarea { width: 90%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #444; background: #222; color: white; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
-        button { padding: 12px; font-size: 15px; border: none; border-radius: 8px; color: white; cursor: pointer; }
-        .btn-main { background-color: #27ae60; }
-        .btn-common { background-color: #3498db; }
-        .btn-danger { background-color: #c0392b; }
+        button { padding: 15px; font-size: 16px; border: none; border-radius: 8px; color: white; cursor: pointer; font-weight: bold; }
+        
+        /* 區塊樣式 */
+        .section-title { margin-top: 30px; font-size: 1.2em; border-bottom: 1px solid #444; padding-bottom: 5px; }
+        .sms-btn { background-color: #27ae60; }
+        .call-btn { background-color: #c0392b; height: 60px; font-size: 18px; }
         .info-box { background: #333; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #555; }
     </style>
 </head>
@@ -22,7 +24,6 @@
     <div class="info-box">
         <input type="text" id="locationInput" readonly placeholder="定位中...">
         <input type="text" id="coordInput" readonly placeholder="座標...">
-        <button style="width: 95%; background-color: #8e44ad;" onclick="copyInfo()">複製位置資訊</button>
     </div>
 
     <select id="accidentType">
@@ -32,76 +33,46 @@
     </select>
     <textarea id="note" rows="2" placeholder="現場說明..."></textarea>
 
+    <div class="section-title">簡訊文字報案</div>
     <div class="grid">
-        <button class="btn-main" onclick="sendReport('accident')">發送簡訊【車禍】</button>
-        <button class="btn-common" onclick="sendReport('parking')">違規停車</button>
-        <button class="btn-common" onclick="sendReport('general')">一般協助</button>
-        <button class="btn-common" onclick="sendReport('criminal')">刑事報案</button>
-        <button style="grid-column: span 2; background-color: #7f8c8d;" onclick="location.reload()">重置畫面</button>
+        <button class="sms-btn" onclick="sendReport('accident')">【車禍】簡訊</button>
+        <button class="sms-btn" onclick="sendReport('parking')">【違停】簡訊</button>
+        <button class="sms-btn" onclick="sendReport('general')">【協助】簡訊</button>
+        <button class="sms-btn" onclick="sendReport('criminal')">【刑事】簡訊</button>
     </div>
 
-    <div class="grid" style="margin-top: 20px;">
-        <button class="btn-danger" onclick="window.location.href='tel:110'">撥打 110</button>
-        <button class="btn-danger" style="background-color: #d35400;" onclick="window.location.href='tel:119'">撥打 119</button>
+    <div class="section-title">緊急語音通話</div>
+    <div class="grid">
+        <button class="call-btn" onclick="window.location.href='tel:110'">撥打 110</button>
+        <button class="call-btn" style="background-color: #d35400;" onclick="window.location.href='tel:119'">撥打 119</button>
     </div>
 
     <script>
         const API_KEY = 'AIzaSyDePx-sl1uvHjSyfZGVUEsrTrHF3XYuNkU';
-        
-        // 全台各縣市簡訊報案號碼對照表
         const smsNumbers = {
             "台北市": "0912625110", "新北市": "0911510110", "桃園市": "0911510110",
             "台中市": "0911510110", "台南市": "0911510110", "高雄市": "0911510110",
             "基隆市": "0911510110", "新竹市": "0911510110", "嘉義市": "0911510110"
-            // 可依需求繼續補齊其他縣市
         };
 
-        // GPS 定位初始化
         if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    const lat = pos.coords.latitude;
-                    const lng = pos.coords.longitude;
-                    document.getElementById('coordInput').value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-                    fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${API_KEY}&language=zh-TW`)
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.status === 'OK') document.getElementById('locationInput').value = data.results[0].formatted_address;
-                        });
-                },
-                (err) => { document.getElementById('locationInput').value = "定位失敗"; }
-            );
-        }
-
-        function copyInfo() {
-            const text = `地點：${document.getElementById('locationInput').value}，座標：${document.getElementById('coordInput').value}`;
-            navigator.clipboard.writeText(text);
-            alert("已複製");
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                document.getElementById('coordInput').value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${API_KEY}&language=zh-TW`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'OK') document.getElementById('locationInput').value = data.results[0].formatted_address;
+                    });
+            });
         }
 
         function sendReport(type) {
             const loc = document.getElementById('locationInput').value;
             const note = document.getElementById('note').value;
-            
-            // 1. 檢查地址擷取狀態
-            if (!loc || loc.includes("定位中") || loc.includes("定位失敗")) {
-                let manual = confirm("地址擷取失敗。是否要手動選擇縣市並撥打該縣市報案簡訊？\n(按取消則直接撥打 110 電話)");
-                if (manual) {
-                    let city = prompt("請輸入縣市名稱（例如：台北市）：");
-                    let phone = smsNumbers[city];
-                    if (phone) {
-                        window.location.href = `sms:${phone}?body=【報案請求】定位失敗，地址待回報。說明：${note}`;
-                    } else {
-                        alert("找不到該縣市簡訊號碼，請直接撥打 110。");
-                    }
-                } else {
-                    window.location.href = 'tel:110';
-                }
-                return;
-            }
+            let targetPhone = "110"; 
 
-            // 2. 自動尋找縣市並決定簡訊號碼
-            let targetPhone = "110"; // 預設號碼
             for (let city in smsNumbers) {
                 if (loc.includes(city)) {
                     targetPhone = smsNumbers[city];
@@ -109,18 +80,13 @@
                 }
             }
 
-            // 3. 組合報案內容
             let msg = "";
-            if (type === 'accident') {
-                msg = `【車禍報案】類別：${document.getElementById('accidentType').value}。地點：${loc}。說明：${note}。`;
-            } else if (type === 'parking') {
-                msg = `【違規停車】地點：${loc}。說明：${note}。請派員查處。`;
-            } else if (type === 'general') {
-                msg = `【一般協助】地點：${loc}。說明：${note}。請協助。`;
-            } else if (type === 'criminal') {
-                msg = `【刑事報案】地點：${loc}。說明：${note}。請警方介入。`;
+            switch(type) {
+                case 'accident': msg = `【車禍報案】類別：${document.getElementById('accidentType').value}。地點：${loc}。說明：${note}。`; break;
+                case 'parking':  msg = `【違規停車】地點：${loc}。說明：${note}。請派員查處。`; break;
+                case 'general':  msg = `【一般協助】地點：${loc}。說明：${note}。請協助。`; break;
+                case 'criminal': msg = `【刑事報案】地點：${loc}。說明：${note}。請警方介入。`; break;
             }
-            
             window.location.href = `sms:${targetPhone}?body=${encodeURIComponent(msg)}`;
         }
     </script>
